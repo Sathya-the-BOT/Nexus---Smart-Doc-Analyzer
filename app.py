@@ -759,7 +759,6 @@ def get_answer(results, question, history):
       "- If the answer can be found verbatim or inferred from the context, give a short, factual answer (1-3 sentences).\n"
       "- If you infer, state it briefly as an inference.\n"
       "- If the answer cannot be found or reasonably inferred, respond: 'Answer not found in context.'\n"
-      "- For any facts you cite, include source markers in the form [Source: <doc> | Page <n>].\n"
       "- Do not output HTML, tags, or code blocks. Do not include step-by-step chains of thought.\n"
       "- Be concise and prioritize directly quoting or referencing context passages when relevant."
     )

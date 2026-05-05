@@ -207,38 +207,6 @@ section[data-testid="stSidebar"] > div:first-child {
   padding-top: 0.25rem;
 }
 
-/* Keep Streamlit default sidebar arrow icon */
-header [data-testid="collapsedControl"] button {
-  background: transparent !important;
-  border: 1px solid var(--border) !important;
-  width: 2.2rem !important;
-  height: 2.2rem !important;
-  padding: 0 !important;
-}
-
-/* Ensure the default SVG icon stays visible */
-header [data-testid="collapsedControl"] svg {
-  display: block !important;
-  width: 18px !important;
-  height: 18px !important;
-}
-
-/* Prevent text fallback */
-header [data-testid="collapsedControl"] span {
-  /* Ensure Material Icons ligature font is used so icon text like
-     'keyboard_double_arrow_left' renders as the proper glyph */
-  font-family: 'Material Icons' !important;
-  font-weight: normal !important;
-  font-style: normal !important;
-  font-size: 18px !important;
-  line-height: 18px !important;
-  speak: none !important;
-  font-feature-settings: 'liga' !important;
-  -webkit-font-feature-settings: 'liga' !important;
-  -webkit-font-smoothing: antialiased !important;
-  -moz-osx-font-smoothing: grayscale !important;
-  text-rendering: optimizeLegibility !important;
-}
 
 .main-wrap {
   max-width: 1040px;

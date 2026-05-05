@@ -746,17 +746,25 @@ def get_answer(results, question, history):
     context = "\n\n---\n\n".join(context_parts) if context_parts else "NO_CONTEXT_FOUND"
 
     system = (
-        "You are Nexus, a precise document assistant.\n"
-        "Rules:\n"
-        "- Answer ONLY from the provided context.\n"
-        "- Do not fabricate information.\n"
-        "- If the answer is not in the context, Try to infer it from the provided information.\n"
-        "- Mention page numbers when relevant.\n"
-        "- Do not output HTML, tags, or code blocks.\n"
-        "- Be concise but complete."
+      "You are Nexus, a precise document assistant.\n"
+      "Rules:\n"
+      "- Use ONLY the provided CONTEXT to answer. Do NOT use external knowledge.\n"
+      "- If the answer can be found verbatim or inferred from the context, give a short, factual answer (1-3 sentences).\n"
+      "- If you infer, state it briefly as an inference.\n"
+      "- If the answer cannot be found or reasonably inferred, respond: 'Answer not found in context.'\n"
+      "- For any facts you cite, include source markers in the form [Source: <doc> | Page <n>].\n"
+      "- Do not output HTML, tags, or code blocks. Do not include step-by-step chains of thought.\n"
+      "- Be concise and prioritize directly quoting or referencing context passages when relevant."
     )
 
-    user_msg = f"RETRIEVED CONTEXT:\n{context}\n\nQUESTION:\n{question}"
+    user_msg = (
+      f"RETRIEVED CONTEXT:\n{context}\n\n"
+      f"QUESTION:\n{question}\n\n"
+      "Instructions:\n"
+      "- Answer briefly and cite sources from the context using the required source markers.\n"
+      "- If multiple context passages support the answer, list them separated by semicolons.\n"
+      "- If nothing in the context answers the question, say exactly: 'Answer not found in context.'"
+    )
     return call_llm(system, user_msg, history)
 
 
@@ -868,7 +876,7 @@ with st.sidebar:
             NEXUS AI
           </div>
           <div style="color: var(--amber); font-size: 10px; letter-spacing: 0.18em; margin-top: 0.35rem;">
-            TERMINAL PDF RAG / GROQ ONLY
+            TERMINAL PDF RAG
           </div>
         </div>
         """,
@@ -999,15 +1007,13 @@ if not st.session_state.docs:
     st.markdown(
         """
         <div class="boot-box">
-          <div class="ascii">NEXUS AI :: BOOT SEQUENCE
-[ READY ]
-[ WAITING FOR INPUT ]</div>
+          <div class="ascii">NEXUS - AI Document Assistant</div>
         </div>
         <div class="hero">
           <div class="hero-eyebrow">Semantic PDF Intelligence</div>
           <div class="hero-title">Talk to any PDF.<br>Instantly.</div>
           <div class="hero-sub">
-            Upload one or more PDFs and query them with semantic search and Groq-powered answers.
+            Upload documents and explore them with semantic search and AI-powered answers.
             Open the sidebar from the top-left control to load files or update the API key.
           </div>
           <div class="grid-3">

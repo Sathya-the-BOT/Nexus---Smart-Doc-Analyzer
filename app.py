@@ -1150,3 +1150,39 @@ else:
             st.rerun()
 
 st.markdown('</div>', unsafe_allow_html=True)
+
+
+import streamlit.components.v1 as components
+components.html("""
+<script>
+function fixCollapseBtn() {
+  const doc = window.parent.document;
+
+  const openBtns = doc.querySelectorAll('[data-testid="collapsedControl"] button');
+  openBtns.forEach(btn => {
+    btn.innerHTML = '';
+    btn.style.cssText += 'background:transparent!important;border:none!important;cursor:pointer!important;width:36px!important;height:36px!important;display:flex!important;align-items:center!important;justify-content:center!important;';
+    const arrow = doc.createElement('span');
+    arrow.textContent = '\u203a';
+    arrow.style.cssText = 'color:#33ff00;font-size:24px;font-family:"JetBrains Mono",monospace;line-height:1;text-shadow:0 0 6px rgba(51,255,0,0.5);pointer-events:none;';
+    btn.appendChild(arrow);
+  });
+
+  const closeBtns = doc.querySelectorAll('[data-testid="stSidebar"] button[data-testid="baseButton-header"]');
+  closeBtns.forEach(btn => {
+    btn.innerHTML = '';
+    const arrow = doc.createElement('span');
+    arrow.textContent = '\u2039';
+    arrow.style.cssText = 'color:#33ff00;font-size:24px;font-family:"JetBrains Mono",monospace;pointer-events:none;';
+    btn.appendChild(arrow);
+  });
+}
+
+fixCollapseBtn();
+setTimeout(fixCollapseBtn, 300);
+setTimeout(fixCollapseBtn, 800);
+setTimeout(fixCollapseBtn, 1500);
+const observer = new MutationObserver(() => fixCollapseBtn());
+observer.observe(window.parent.document.body, { childList: true, subtree: true });
+</script>
+""", height=0)

@@ -56,6 +56,10 @@ html, body, [class*="css"] {
 
 #MainMenu, footer { visibility: hidden; }
 header { visibility: visible; }
+header [data-testid="collapsedControl"], header [data-testid="collapsedControl"] * { font-family: "Material Symbols Rounded" !important; color: var(--fg) !important; font-size: 24px !important; line-height: 1 !important; }
+header [data-testid="collapsedControl"] button { background: transparent !important; border: 1px solid var(--border) !important; width: 2.2rem !important; height: 2.2rem !important; padding: 0 !important; }
+header [data-testid="collapsedControl"] svg { display: none !important; }
+header { visibility: visible; }
 
 .stApp {
   background: var(--bg) !important;
@@ -125,6 +129,9 @@ button, input, textarea, select {
   color: var(--fg) !important;
   border: 1px solid var(--border) !important;
   border-radius: 0 !important;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 0.55rem 0.8rem !important;
 }
 
 [data-testid="stSidebar"] .stTextInput input,
@@ -569,12 +576,24 @@ def safe(text: str) -> str:
     return html.escape("" if text is None else str(text))
 
 
+def sanitize_llm_text(text: str) -> str:
+    """
+    Remove accidental HTML/code-block output from the model so the UI stays clean.
+    """
+    text = "" if text is None else str(text)
+    text = text.replace("```", "")
+    text = re.sub(r"<[^>]+>", "", text)
+    text = re.sub(r"\n{3,}", "\n\n", text).strip()
+    return text
+
+
 def render_answer(text: str) -> str:
     """
     Minimal markdown-ish renderer for the terminal UI.
-    Supports **bold** and line breaks.
+    Supports **bold** and line breaks, while preventing HTML/code leakage.
     """
-    escaped = html.escape("" if text is None else str(text))
+    cleaned = sanitize_llm_text(text)
+    escaped = html.escape(cleaned)
     escaped = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", escaped)
     escaped = escaped.replace("\n", "<br>")
     return escaped
@@ -609,7 +628,7 @@ def extract_pdf(file_obj, doc_name: str):
 
     meta = {
         "pages": len(reader.pages),
-        "words": len(full_text.split()),
+        "words": len(re.findall(r"\b[\w'-]+\b", re.sub(r"\s+", " ", full_text).strip())),
         "chunks": len(chunks),
         "full_text": full_text[:5000],
     }
@@ -679,7 +698,7 @@ def call_groq(api_key: str, system: str, user_msg: str, history):
             max_tokens=1024,
             temperature=0.3,
         )
-        return response.choices[0].message.content.strip()
+        return sanitize_llm_text(response.choices[0].message.content.strip())
     except Exception as e:
         err = str(e)
         if "429" in err:
@@ -845,10 +864,9 @@ with st.sidebar:
 
     st.markdown("### > LOAD DOCUMENTS")
     uploaded_files = st.file_uploader(
-        "pdf",
+        "ADD PDF(S)",
         type="pdf",
         accept_multiple_files=True,
-        label_visibility="collapsed",
     )
 
     if uploaded_files:

@@ -573,6 +573,40 @@ section[data-testid="stSidebar"] > div:first-child {
 ::-webkit-scrollbar-thumb {
   background: var(--border);
 }
+
+/* ── SIDEBAR COLLAPSE BUTTON FIX ── */
+[data-testid="collapsedControl"] button {
+  color: transparent !important;
+  font-size: 0 !important;
+  background: var(--bg) !important;
+  border: none !important;
+  position: relative !important;
+}
+[data-testid="collapsedControl"] button::after {
+  content: '›';
+  font-size: 22px !important;
+  color: #33ff00 !important;
+  font-family: 'JetBrains Mono', monospace !important;
+  display: block !important;
+}
+[data-testid="collapsedControl"] button:hover::after {
+  color: #ffb000 !important;
+}
+[data-testid="stSidebar"] button[data-testid="baseButton-header"] {
+  color: transparent !important;
+  font-size: 0 !important;
+  background: transparent !important;
+  border: none !important;
+  position: relative !important;
+}
+[data-testid="stSidebar"] button[data-testid="baseButton-header"]::after {
+  content: '‹';
+  font-size: 22px !important;
+  color: #33ff00 !important;
+  font-family: 'JetBrains Mono', monospace !important;
+  display: block !important;
+}
+
 </style>
 """,
     unsafe_allow_html=True,

@@ -105,8 +105,43 @@ button, input, textarea, select {
   padding-top: 0.25rem;
 }
 
+[data-testid="stSidebar"] .stFileUploader {
+  padding-top: 0.25rem;
+}
+
+/* Hide Streamlit's default title */
 [data-testid="stSidebar"] .stFileUploader label {
   display: none !important;
+}
+
+/* Hide extra helper/instruction text */
+[data-testid="stSidebar"] [data-testid="stFileUploaderDropzone"] div[data-testid="stFileUploaderDropzoneInstructions"] {
+  display: none !important;
+}
+
+/* Clean dropzone */
+[data-testid="stSidebar"] [data-testid="stFileUploaderDropzone"] {
+  background: var(--panel) !important;
+  border: 1px dashed var(--border-2) !important;
+  min-height: 90px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+/* Hide internal paragraphs */
+[data-testid="stSidebar"] [data-testid="stFileUploaderDropzone"] p {
+  display: none !important;
+}
+
+/* Style only the button */
+[data-testid="stSidebar"] [data-testid="stFileUploaderDropzone"] button {
+  background: transparent !important;
+  color: var(--fg) !important;
+  border: 1px solid var(--border) !important;
+  padding: 0.7rem 1rem !important;
+  text-transform: uppercase;
+  font-size: 14px !important;
 }
 
 [data-testid="stSidebar"] [data-testid="stFileUploaderDropzone"] {
@@ -708,7 +743,7 @@ def get_answer(results, question, history):
         "Rules:\n"
         "- Answer ONLY from the provided context.\n"
         "- Do not fabricate information.\n"
-        "- If the answer is not in the context, say: 'This information is not available in the uploaded documents.'\n"
+        "- If the answer is not in the context, Try to infer it from the provided information.\n"
         "- Mention page numbers when relevant.\n"
         "- Do not output HTML, tags, or code blocks.\n"
         "- Be concise but complete."

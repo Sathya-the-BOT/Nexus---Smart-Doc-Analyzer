@@ -15,7 +15,7 @@ import pypdf
 # =============================================================================
 st.set_page_config(
     page_title="Nexus AI",
-    page_icon="⚡",
+    page_icon="🤖",
     layout="wide",
     initial_sidebar_state="expanded",
 )
@@ -206,18 +206,25 @@ section[data-testid="stSidebar"] > div:first-child {
   padding-top: 0.25rem;
 }
 
-/* Keep the sidebar toggle visible but don't replace the icon glyph.
-   This avoids the keyboard_double_arrow_* text artifact. */
+/* Keep Streamlit default sidebar arrow icon */
 header [data-testid="collapsedControl"] button {
   background: transparent !important;
   border: 1px solid var(--border) !important;
   width: 2.2rem !important;
   height: 2.2rem !important;
   padding: 0 !important;
-  color: var(--fg) !important;
 }
+
+/* Ensure the default SVG icon stays visible */
 header [data-testid="collapsedControl"] svg {
   display: block !important;
+  width: 18px !important;
+  height: 18px !important;
+}
+
+/* Prevent text fallback */
+header [data-testid="collapsedControl"] span {
+  font-family: inherit !important;
 }
 
 .main-wrap {

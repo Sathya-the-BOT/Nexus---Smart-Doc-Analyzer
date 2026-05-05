@@ -1002,7 +1002,7 @@ if not st.session_state.docs:
         </div>
         <div class="hero">
           <div class="hero-eyebrow">Semantic PDF Intelligence</div>
-          <div class="hero-title">Talk to any PDF Instantly.</div>
+          <div class="hero-title">Talk to any PDF <br>Instantly.</div>
           <div class="hero-sub">
             Upload documents and explore them with semantic search and AI-powered answers.
             Open the sidebar from the top-left control to load files or update the API key.

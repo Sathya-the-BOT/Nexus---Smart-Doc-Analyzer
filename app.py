@@ -25,9 +25,10 @@ st.set_page_config(
 # Terminal-style UI
 # =============================================================================
 st.markdown(
-    """
+  """
 <style>
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&display=swap');
+@import url('https://fonts.googleapis.com/icon?family=Material+Icons');
 
 :root {
   --bg: #0a0a0a;
@@ -224,7 +225,16 @@ header [data-testid="collapsedControl"] svg {
 
 /* Prevent text fallback */
 header [data-testid="collapsedControl"] span {
-  font-family: inherit !important;
+  /* Ensure Material Icons ligature font is used so icon text like
+     'keyboard_double_arrow_left' renders as the proper glyph */
+  font-family: 'Material Icons' !important;
+  font-weight: normal !important;
+  font-style: normal !important;
+  font-size: 18px !important;
+  line-height: 18px !important;
+  speak: none !important;
+  -webkit-font-feature-settings: 'liga' !important;
+  -webkit-font-smoothing: antialiased !important;
 }
 
 .main-wrap {

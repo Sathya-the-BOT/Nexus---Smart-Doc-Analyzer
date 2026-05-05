@@ -1,728 +1,1106 @@
-import streamlit as st
-import pypdf
-import numpy as np
+
 import os
 import re
 import ast
+import html
 from datetime import datetime
 
-# ── Page config ───────────────────────────────────────────────────────────────
+import numpy as np
+import streamlit as st
+import pypdf
+
+
+# =============================================================================
+# Page config
+# =============================================================================
 st.set_page_config(
-    page_title="NEXUS // DOC-AI",
+    page_title="Nexus AI",
     page_icon="⚡",
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
-# ── Terminal CLI CSS ──────────────────────────────────────────────────────────
-st.markdown("""
+
+# =============================================================================
+# Terminal-style UI
+# =============================================================================
+st.markdown(
+    """
 <style>
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&display=swap');
 
 :root {
-  --bg:        #0a0a0a;
-  --surface:   #0d0d0d;
-  --surface2:  #111111;
-  --green:     #33ff00;
-  --green-dim: #1a3f1a;
-  --amber:     #ffb000;
-  --red:       #ff3333;
-  --muted:     #2a6b2a;
-  --border:    #1f521f;
-  --glow:      0 0 6px rgba(51,255,0,0.45);
-  --glow-sm:   0 0 3px rgba(51,255,0,0.3);
+  --bg: #0a0a0a;
+  --fg: #33ff00;
+  --amber: #ffb000;
+  --muted: #1f521f;
+  --border: #1f521f;
+  --border-2: #2d6b2d;
+  --danger: #ff3333;
+  --panel: #050505;
+  --panel-2: #090909;
 }
 
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  border-radius: 0 !important;
+}
+
 html, body, [class*="css"] {
-  font-family: 'JetBrains Mono', 'Fira Code', monospace !important;
+  font-family: 'JetBrains Mono', monospace !important;
   background: var(--bg) !important;
-  color: var(--green);
+  color: var(--fg) !important;
 }
-#MainMenu, footer, header { visibility: hidden; }
-.stApp { background: var(--bg) !important; }
 
-/* CRT scanlines */
+#MainMenu, footer { visibility: hidden; }
+header { visibility: visible; }
+
+.stApp {
+  background: var(--bg) !important;
+  color: var(--fg) !important;
+}
+
 .stApp::before {
-  content: '';
-  position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-  background: repeating-linear-gradient(
-    0deg, transparent, transparent 2px,
-    rgba(0,0,0,0.06) 2px, rgba(0,0,0,0.06) 4px
-  );
+  content: "";
+  position: fixed;
+  inset: 0;
   pointer-events: none;
-  z-index: 9999;
+  z-index: 9998;
+  background: repeating-linear-gradient(
+    to bottom,
+    rgba(51,255,0,0.035) 0px,
+    rgba(51,255,0,0.035) 1px,
+    transparent 2px,
+    transparent 4px
+  );
+  opacity: 0.28;
 }
 
-/* ── SIDEBAR COLLAPSE FIX ── */
-[data-testid="collapsedControl"],
-[data-testid="collapsedControl"] * {
-  display: flex !important;
-  visibility: visible !important;
-  opacity: 1 !important;
-}
-[data-testid="collapsedControl"] {
-  background: var(--bg) !important;
-  border-right: 1px solid var(--border) !important;
-}
-[data-testid="collapsedControl"] svg { color: var(--green) !important; }
-section[data-testid="stSidebarCollapsedControl"] {
-  display: flex !important;
-  visibility: visible !important;
+.stApp::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9997;
+  background: radial-gradient(
+    circle at center,
+    rgba(51,255,0,0.05) 0%,
+    rgba(0,0,0,0) 65%
+  );
 }
 
-/* ── Sidebar ── */
 [data-testid="stSidebar"] {
-  background: var(--surface) !important;
+  background: #080808 !important;
   border-right: 1px solid var(--border) !important;
 }
-[data-testid="stSidebar"] > div:first-child { padding: 0 !important; }
-[data-testid="stSidebar"] * {
-  color: var(--green) !important;
+
+[data-testid="stSidebar"] *,
+button, input, textarea, select {
   font-family: 'JetBrains Mono', monospace !important;
 }
-[data-testid="stSidebar"] .stFileUploader label { display: none !important; }
+
+[data-testid="stSidebar"] .stFileUploader {
+  padding-top: 0.25rem;
+}
+
+[data-testid="stSidebar"] .stFileUploader label {
+  display: none !important;
+}
+
 [data-testid="stSidebar"] [data-testid="stFileUploaderDropzone"] {
-  background: var(--bg) !important;
-  border: 1px dashed var(--border) !important;
+  background: var(--panel) !important;
+  border: 1px dashed var(--border-2) !important;
   border-radius: 0 !important;
 }
-[data-testid="stSidebar"] [data-testid="stFileUploaderDropzone"]:hover {
-  border-color: var(--green) !important;
-  background: rgba(51,255,0,0.03) !important;
-}
+
 [data-testid="stSidebar"] [data-testid="stFileUploaderDropzone"] p {
-  color: var(--muted) !important; font-size: 11px !important;
-}
-[data-testid="stSidebar"] [data-testid="stFileUploaderDropzone"] button {
-  background: var(--bg) !important;
-  border: 1px solid var(--border) !important;
-  color: var(--green) !important;
-  border-radius: 0 !important; font-size: 11px !important;
-}
-[data-testid="stSidebar"] .stRadio label { font-size: 11px !important; }
-[data-testid="stSidebar"] .stRadio [data-testid="stWidgetLabel"] { display: none !important; }
-[data-testid="stSidebar"] .stTextInput input {
-  background: var(--bg) !important;
-  border: 0 !important;
-  border-bottom: 1px solid var(--border) !important;
-  border-radius: 0 !important;
-  color: var(--green) !important;
+  color: #94cc94 !important;
   font-size: 11px !important;
-  font-family: 'JetBrains Mono', monospace !important;
-  text-shadow: var(--glow-sm);
 }
-[data-testid="stSidebar"] .stTextInput input:focus {
-  border-bottom-color: var(--green) !important;
+
+[data-testid="stSidebar"] [data-testid="stFileUploaderDropzone"] button {
+  background: transparent !important;
+  color: var(--fg) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 0 !important;
+}
+
+[data-testid="stSidebar"] .stTextInput input,
+[data-testid="stSidebar"] .stSelectbox div[data-baseweb="select"] > div,
+[data-testid="stSidebar"] .stTextInput textarea {
+  background: #050505 !important;
+  color: var(--fg) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 0 !important;
   box-shadow: none !important;
 }
-[data-testid="stSidebar"] .stTextInput label { display: none !important; }
+
+[data-testid="stSidebar"] .stTextInput input::placeholder,
+[data-testid="stSidebar"] .stTextInput textarea::placeholder {
+  color: #6b996b !important;
+}
+
 [data-testid="stSidebar"] .stButton > button {
   background: transparent !important;
+  color: var(--fg) !important;
   border: 1px solid var(--border) !important;
-  color: var(--muted) !important;
   border-radius: 0 !important;
+  font-size: 11px !important;
+  padding: 0.65rem 0.85rem !important;
   width: 100% !important;
-  font-size: 10px !important;
-  padding: 6px 10px !important;
-  font-family: 'JetBrains Mono', monospace !important;
-  letter-spacing: 1px;
-  transition: all 0.1s !important;
 }
+
 [data-testid="stSidebar"] .stButton > button:hover {
-  background: var(--red) !important;
-  border-color: var(--red) !important;
-  color: var(--bg) !important;
+  background: var(--fg) !important;
+  color: #000 !important;
 }
 
-/* Alerts */
-.stSuccess {
-  background: rgba(51,255,0,0.05) !important;
-  border: 1px solid var(--green) !important;
-  border-radius: 0 !important;
-}
-.stError {
-  background: rgba(255,51,51,0.07) !important;
-  border: 1px solid var(--red) !important;
-  border-radius: 0 !important;
-}
-[data-testid="stExpander"] {
-  background: var(--surface) !important;
-  border: 1px solid var(--border) !important;
-  border-radius: 0 !important;
-}
-[data-testid="stExpander"] summary {
-  color: var(--muted) !important;
-  font-size: 11px !important;
-  font-family: 'JetBrains Mono', monospace !important;
+section[data-testid="stSidebar"] > div:first-child {
+  padding-top: 0.25rem;
 }
 
-/* Main buttons */
-.stButton > button {
-  background: var(--bg) !important;
-  border: 1px solid var(--border) !important;
-  color: var(--muted) !important;
-  border-radius: 0 !important;
-  padding: 10px 14px !important;
-  font-size: 11px !important;
-  font-family: 'JetBrains Mono', monospace !important;
+.main-wrap {
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: 1.5rem 1.25rem 8rem;
+}
+
+.boot-box,
+.panel,
+.card,
+.summary-box,
+.chat-box,
+.suggestion-btn {
+  background: var(--panel);
+  border: 1px solid var(--border);
+}
+
+.boot-box {
+  padding: 1rem 1rem 1.1rem;
+  margin-bottom: 1.1rem;
+}
+
+.ascii {
+  color: var(--fg);
+  white-space: pre-wrap;
+  line-height: 1.1;
+  font-size: 12px;
+}
+
+.hero {
+  margin: 0.75rem 0 1.5rem;
+}
+
+.hero-eyebrow {
+  color: var(--amber);
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  margin-bottom: 0.75rem;
+}
+
+.hero-title {
+  color: var(--fg);
+  font-size: clamp(2rem, 5vw, 4rem);
+  line-height: 1.0;
+  font-weight: 800;
+  text-transform: uppercase;
+  text-shadow: 0 0 5px rgba(51,255,0,0.35);
+  margin-bottom: 0.8rem;
+}
+
+.hero-sub {
+  color: #98c898;
+  max-width: 48rem;
+  line-height: 1.8;
+  margin-bottom: 1.25rem;
+  font-size: 14px;
+}
+
+.kbd {
+  color: var(--amber);
+}
+
+.grid-3 {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.75rem;
+}
+
+@media (max-width: 820px) {
+  .grid-3 {
+    grid-template-columns: 1fr;
+  }
+}
+
+.step-card {
+  padding: 0.95rem;
+}
+
+.step-top {
+  color: var(--amber);
+  font-size: 11px;
+  margin-bottom: 0.65rem;
+}
+
+.step-title {
+  color: var(--fg);
+  font-weight: 700;
+  margin-bottom: 0.25rem;
+  text-transform: uppercase;
+}
+
+.step-desc {
+  color: #93c493;
+  font-size: 12px;
+  line-height: 1.65;
+}
+
+.section-label {
+  color: var(--amber);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  margin: 1.1rem 0 0.55rem;
+}
+
+.hr {
+  height: 1px;
+  background: var(--border);
+  margin: 0.8rem 0 1rem;
+}
+
+.summary-box {
+  padding: 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.summary-title {
+  color: var(--amber);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  margin-bottom: 0.65rem;
+  text-transform: uppercase;
+}
+
+.summary-content {
+  color: #9cd09c;
+  line-height: 1.75;
+  font-size: 13px;
+}
+
+.doc-card {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.8rem 0.85rem;
+  margin-bottom: 0.55rem;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+}
+
+.doc-icon,
+.av {
+  width: 2rem;
+  height: 2rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  color: var(--fg);
+  flex: 0 0 auto;
+}
+
+.doc-icon {
+  background: #071107;
+}
+
+.doc-info {
+  min-width: 0;
+  flex: 1;
+}
+
+.doc-name {
+  color: var(--fg);
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.doc-meta {
+  color: #86b586;
+  font-size: 10px;
+  margin-top: 0.2rem;
+}
+
+.badge {
+  color: var(--amber);
+  border: 1px solid var(--border);
+  padding: 0.2rem 0.4rem;
+  font-size: 9px;
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.stat {
+  border: 1px solid var(--border);
+  background: var(--panel);
+  padding: 0.8rem 0.45rem;
+  text-align: center;
+}
+
+.stat-val {
+  color: var(--fg);
+  font-size: 1.15rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.stat-key {
+  color: #82aa82;
+  text-transform: uppercase;
+  font-size: 9px;
+  margin-top: 0.35rem;
+  letter-spacing: 0.12em;
+}
+
+.suggestion-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.6rem;
+}
+
+@media (max-width: 700px) {
+  .suggestion-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.suggestion-btn {
   text-align: left !important;
-  width: 100% !important;
-  height: auto !important;
-  white-space: normal !important;
-  line-height: 1.5 !important;
-  transition: all 0.1s !important;
-}
-.stButton > button:hover {
-  background: var(--green) !important;
-  border-color: var(--green) !important;
-  color: var(--bg) !important;
+  padding: 0.85rem 0.9rem !important;
+  color: #b2dfb2 !important;
+  border: 1px solid var(--border) !important;
+  background: var(--panel) !important;
 }
 
-/* Chat input */
-[data-testid="stChatInput"] {
-  background: var(--surface) !important;
+.suggestion-btn:hover {
+  background: var(--fg) !important;
+  color: #000 !important;
+}
+
+.chat-wrap {
+  margin-top: 1rem;
+}
+
+.msg-user,
+.msg-ai {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.65rem;
+  margin-bottom: 0.5rem;
+  align-items: end;
+}
+
+.msg-ai {
+  grid-template-columns: auto 1fr;
+  align-items: start;
+}
+
+.bubble-user,
+.bubble-ai {
+  padding: 0.95rem 1rem;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  line-height: 1.75;
+  font-size: 13px;
+  white-space: normal;
+  word-break: break-word;
+}
+
+.bubble-user {
+  background: #0d2b0d;
+  color: var(--fg);
+}
+
+.bubble-ai {
+  color: #b8deb8;
+}
+
+.user-tag {
+  color: var(--amber);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  align-self: center;
+  white-space: nowrap;
+}
+
+.ai-tag {
+  color: var(--fg);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  align-self: center;
+  white-space: nowrap;
+}
+
+.citations-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0.45rem 0 1rem 2.55rem;
+}
+
+.cite-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  padding: 0.3rem 0.55rem;
+  font-size: 10px;
+  display: inline-flex;
+  gap: 0.45rem;
+  align-items: center;
+}
+
+.cite-page {
+  color: var(--fg);
+}
+
+.cite-score {
+  color: var(--amber);
+}
+
+.command-line {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  margin: 1rem 0 0.5rem;
+  color: var(--fg);
+}
+
+.prompt {
+  color: var(--amber);
+  white-space: nowrap;
+}
+
+[data-testid="stTextInput"] input,
+[data-testid="stTextArea"] textarea {
+  background: #050505 !important;
+  color: var(--fg) !important;
   border: 1px solid var(--border) !important;
   border-radius: 0 !important;
   box-shadow: none !important;
 }
-[data-testid="stChatInput"]:focus-within {
-  border-color: var(--green) !important;
-  box-shadow: var(--glow-sm) !important;
-}
-[data-testid="stChatInput"] textarea {
-  background: var(--surface) !important;
-  border: none !important;
-  color: var(--green) !important;
-  font-family: 'JetBrains Mono', monospace !important;
-  font-size: 13px !important;
-  text-shadow: var(--glow-sm);
-}
-[data-testid="stChatInput"] textarea::placeholder { color: var(--muted) !important; }
-[data-testid="stChatInput"] button {
-  background: var(--green) !important; border-radius: 0 !important;
-}
-[data-testid="stChatInput"] button svg { color: var(--bg) !important; }
 
-/* Download btn */
-.stDownloadButton > button {
+[data-testid="stTextInput"] input::placeholder,
+[data-testid="stTextArea"] textarea::placeholder {
+  color: #7b9f7b !important;
+}
+
+[data-testid="stForm"] {
+  border: 1px solid var(--border);
+  background: var(--panel);
+  padding: 0.9rem;
+}
+
+[data-testid="stFormSubmitButton"] button,
+[data-testid="stDownloadButton"] button {
   background: transparent !important;
+  color: var(--fg) !important;
   border: 1px solid var(--border) !important;
-  color: var(--muted) !important;
   border-radius: 0 !important;
-  font-size: 10px !important;
-  font-family: 'JetBrains Mono', monospace !important;
-  letter-spacing: 1px;
-}
-.stDownloadButton > button:hover {
-  border-color: var(--amber) !important;
-  color: var(--amber) !important;
 }
 
-.stSpinner > div { border-top-color: var(--green) !important; }
-
-::-webkit-scrollbar { width: 4px; }
-::-webkit-scrollbar-track { background: var(--bg); }
-::-webkit-scrollbar-thumb { background: var(--border); }
-::-webkit-scrollbar-thumb:hover { background: var(--green); }
-
-@keyframes blink {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0; }
+[data-testid="stFormSubmitButton"] button:hover,
+[data-testid="stDownloadButton"] button:hover {
+  background: var(--fg) !important;
+  color: #000 !important;
 }
-@keyframes rise {
-  from { opacity: 0; transform: translateY(6px); }
-  to   { opacity: 1; transform: translateY(0); }
+
+[data-testid="stExpander"] {
+  background: var(--panel) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 0 !important;
 }
-.cursor-block {
-  display: inline-block;
-  width: 8px; height: 14px;
-  background: var(--green);
-  vertical-align: middle;
-  animation: blink 1s step-end infinite;
+
+[data-testid="stExpander"] summary {
+  color: var(--fg) !important;
+  font-size: 12px !important;
+}
+
+.stSpinner > div {
+  border-top-color: var(--fg) !important;
+}
+
+::-webkit-scrollbar {
+  width: 4px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border);
 }
 </style>
-""", unsafe_allow_html=True)
+""",
+    unsafe_allow_html=True,
+)
 
 
-# ── Model ─────────────────────────────────────────────────────────────────────
+# =============================================================================
+# Helpers
+# =============================================================================
 @st.cache_resource(show_spinner=False)
 def load_embedder():
     from sentence_transformers import SentenceTransformer
-    return SentenceTransformer('all-MiniLM-L6-v2')
+    return SentenceTransformer("all-MiniLM-L6-v2")
 
 
-# ── PDF ───────────────────────────────────────────────────────────────────────
-def extract_pdf(file, doc_name):
-    file.seek(0)
-    reader = pypdf.PdfReader(file)
-    chunks, full_text = [], ""
-    SIZE, OVL = 280, 55
-    for pi, page in enumerate(reader.pages):
-        pt = page.extract_text() or ""
-        full_text += pt + "\n"
-        words = pt.split()
-        s = 0
-        while s < len(words):
-            ct = " ".join(words[s:s+SIZE])
-            if ct.strip():
-                chunks.append({"text": ct, "page": pi+1, "doc": doc_name})
-            s += SIZE - OVL
-    meta = {"pages": len(reader.pages), "words": len(full_text.split()),
-            "chunks": len(chunks), "full_text": full_text[:5000]}
+def safe(text: str) -> str:
+    return html.escape("" if text is None else str(text))
+
+
+def render_answer(text: str) -> str:
+    """
+    Minimal markdown-ish renderer for the terminal UI.
+    Supports **bold** and line breaks.
+    """
+    escaped = html.escape("" if text is None else str(text))
+    escaped = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", escaped)
+    escaped = escaped.replace("\n", "<br>")
+    return escaped
+
+
+def extract_pdf(file_obj, doc_name: str):
+    file_obj.seek(0)
+    reader = pypdf.PdfReader(file_obj)
+
+    chunks = []
+    full_text = ""
+    chunk_size = 260
+    overlap = 60
+
+    for page_idx, page in enumerate(reader.pages):
+        page_text = page.extract_text() or ""
+        full_text += page_text + "\n"
+        words = page_text.split()
+
+        start = 0
+        while start < len(words):
+            chunk_text = " ".join(words[start:start + chunk_size]).strip()
+            if chunk_text:
+                chunks.append(
+                    {
+                        "text": chunk_text,
+                        "page": page_idx + 1,
+                        "doc": doc_name,
+                    }
+                )
+            start += max(1, chunk_size - overlap)
+
+    meta = {
+        "pages": len(reader.pages),
+        "words": len(full_text.split()),
+        "chunks": len(chunks),
+        "full_text": full_text[:5000],
+    }
     return chunks, meta
 
 
 def embed_chunks(chunks):
-    return load_embedder().encode([c["text"] for c in chunks],
-                                   show_progress_bar=False, batch_size=32)
+    model = load_embedder()
+    texts = [c["text"] for c in chunks]
+    if not texts:
+        return np.empty((0, 384))
+    return model.encode(texts, show_progress_bar=False, batch_size=32)
 
 
-def semantic_search(query, all_chunks, all_embs, k=5, doc_filter=None):
+def semantic_search(query: str, all_chunks, all_embeddings, k=5, doc_filter=None):
     from sklearn.metrics.pairwise import cosine_similarity
-    if all_embs is None or not all_chunks:
+
+    if all_embeddings is None or len(all_chunks) == 0:
         return []
-    q_emb = load_embedder().encode([query])
-    idxs = ([i for i,c in enumerate(all_chunks) if c["doc"] in doc_filter]
-            if doc_filter else list(range(len(all_chunks))))
-    if not idxs:
+
+    model = load_embedder()
+    q_emb = model.encode([query])
+
+    if doc_filter:
+        indices = [i for i, c in enumerate(all_chunks) if c["doc"] in doc_filter]
+    else:
+        indices = list(range(len(all_chunks)))
+
+    if not indices:
         return []
-    scores = cosine_similarity(q_emb, all_embs[idxs])[0]
-    top = np.argsort(scores)[::-1][:k]
-    return [{"text": all_chunks[idxs[i]]["text"],
-             "page": all_chunks[idxs[i]]["page"],
-             "doc":  all_chunks[idxs[i]]["doc"],
-             "score": float(scores[i])} for i in top]
+
+    filtered_embs = all_embeddings[indices]
+    scores = cosine_similarity(q_emb, filtered_embs)[0]
+    top_local = np.argsort(scores)[::-1][:k]
+
+    results = []
+    for local_idx in top_local:
+        global_idx = indices[local_idx]
+        results.append(
+            {
+                "text": all_chunks[global_idx]["text"],
+                "page": all_chunks[global_idx]["page"],
+                "doc": all_chunks[global_idx]["doc"],
+                "score": float(scores[local_idx]),
+            }
+        )
+    return results
 
 
-# ── LLMs ─────────────────────────────────────────────────────────────────────
-def _msgs(system, user_msg, history):
-    m = [{"role": "system", "content": system}]
-    for h in history[-4:]:
-        m += [{"role":"user","content":h["q"]},{"role":"assistant","content":h["a"]}]
-    m.append({"role":"user","content":user_msg})
-    return m
+def _build_messages(system, user_msg, history):
+    messages = [{"role": "system", "content": system}]
+    for turn in history[-4:]:
+        messages.append({"role": "user", "content": turn["q"]})
+        messages.append({"role": "assistant", "content": turn["a"]})
+    messages.append({"role": "user", "content": user_msg})
+    return messages
 
 
-def call_groq(api_key, system, user_msg, history):
+def call_groq(api_key: str, system: str, user_msg: str, history):
     try:
         from groq import Groq
-        r = Groq(api_key=api_key).chat.completions.create(
+
+        client = Groq(api_key=api_key)
+        response = client.chat.completions.create(
             model="llama-3.1-8b-instant",
-            messages=_msgs(system, user_msg, history),
-            max_tokens=1024, temperature=0.3)
-        return r.choices[0].message.content.strip()
+            messages=_build_messages(system, user_msg, history),
+            max_tokens=1024,
+            temperature=0.3,
+        )
+        return response.choices[0].message.content.strip()
     except Exception as e:
         err = str(e)
-        if "429" in err: return "[ERR] RATE_LIMIT — wait and retry."
-        if "401" in err: return "[ERR] INVALID_GROQ_KEY — check sidebar."
-        return f"[ERR] {err}"
+        if "429" in err:
+            return "⚠️ Rate limit reached. Please wait a moment and try again."
+        if "401" in err or "invalid" in err.lower():
+            return "⚠️ Invalid Groq API key. Please check the key in the sidebar."
+        return f"⚠️ Groq error: {err}"
 
 
-def call_gemini(api_key, system, user_msg, history):
+def call_llm(system: str, user_msg: str, history):
+    return call_groq(st.session_state.groq_key, system, user_msg, history)
+
+
+def get_answer(results, question, history):
+    context_parts = []
+    for r in results:
+        score_pct = int(r["score"] * 100)
+        context_parts.append(
+            f"[Source: {r['doc']} | Page {r['page']} | Relevance: {score_pct}%]\n{r['text']}"
+        )
+
+    context = "\n\n---\n\n".join(context_parts) if context_parts else "NO_CONTEXT_FOUND"
+
+    system = (
+        "You are Nexus, a precise document assistant.\n"
+        "Rules:\n"
+        "- Answer ONLY from the provided context.\n"
+        "- Do not fabricate information.\n"
+        "- If the answer is not in the context, say: 'This information is not available in the uploaded documents.'\n"
+        "- When you reference a fact, mention the page number.\n"
+        "- Be concise but complete.\n"
+        "- Use simple markdown when helpful."
+    )
+
+    user_msg = f"RETRIEVED CONTEXT:\n{context}\n\nQUESTION:\n{question}"
+    return call_llm(system, user_msg, history)
+
+
+def get_summary(full_text):
+    system = "You are a document analyst. Be structured, concise, and factual."
+    user_msg = (
+        "Provide a structured document summary with these sections:\n"
+        "Main Topic:\n"
+        "Key Points:\n"
+        "Important Data/Facts:\n"
+        "Conclusion:\n\n"
+        f"Document:\n{full_text[:4500]}"
+    )
+    return call_llm(system, user_msg, [])
+
+
+def get_suggestions(full_text):
+    system = "Output ONLY a Python list of 4 strings. No markdown, no explanation."
+    user_msg = (
+        'Generate 4 insightful questions for this document.\n'
+        'Format exactly like: ["Q1?","Q2?","Q3?","Q4?"]\n\n'
+        f"{full_text[:2500]}"
+    )
+    raw = call_llm(system, user_msg, [])
+
     try:
-        import google.generativeai as genai
-        genai.configure(api_key=api_key)
-        # ── FIXED: gemini-2.0-flash ───────────────────────────────────────────
-        mdl = genai.GenerativeModel(model_name="gemini-2.0-flash",
-                                     system_instruction=system)
-        hist = []
-        for h in history[-4:]:
-            hist += [{"role":"user","parts":[h["q"]]},
-                     {"role":"model","parts":[h["a"]]}]
-        return mdl.start_chat(history=hist).send_message(user_msg).text
-    except Exception as e:
-        err = str(e)
-        if "API_KEY" in err or "invalid" in err.lower():
-            return "[ERR] INVALID_GEMINI_KEY — check sidebar."
-        return f"[ERR] {err}"
-
-
-def call_llm(provider, keys, system, user_msg, history):
-    return (call_groq(keys.get("groq",""), system, user_msg, history)
-            if provider == "Groq"
-            else call_gemini(keys.get("gemini",""), system, user_msg, history))
-
-
-def get_answer(provider, keys, results, question, history):
-    ctx = "\n\n---\n\n".join(
-        f"[FILE:{r['doc']}|PAGE:{r['page']}|SCORE:{int(r['score']*100)}%]\n{r['text']}"
-        for r in results)
-    system = ("You are NEXUS, a precise document analysis AI.\n"
-              "RULES: Answer ONLY from context. If not found say 'NOT_FOUND'.\n"
-              "Cite page: 'Ref: Page X of <file>'. Use markdown formatting.")
-    return call_llm(provider, keys, system,
-                    f"CONTEXT:\n{ctx}\n\nQUERY: {question}", history)
-
-
-def get_summary(provider, keys, full_text):
-    system = "You are a document analysis system. Be structured and concise."
-    return call_llm(provider, keys, system,
-                    f"Summarize with: **TOPIC**, **KEY_POINTS**(4 bullets), "
-                    f"**DATA_FACTS**(3 bullets), **CONCLUSION**\n\n{full_text[:4500]}", [])
-
-
-def get_suggestions(provider, keys, full_text):
-    system = 'Output ONLY a Python list of 4 strings. No markdown. No preamble.'
-    raw = call_llm(provider, keys, system,
-                   f'4 insightful questions. Format: ["Q1?","Q2?","Q3?","Q4?"]\n\n{full_text[:2500]}', [])
-    try:
-        m = re.search(r'\[.*?\]', raw, re.DOTALL)
-        if m:
-            qs = ast.literal_eval(m.group())
+        match = re.search(r"\[.*?\]", raw, re.DOTALL)
+        if match:
+            qs = ast.literal_eval(match.group())
             if isinstance(qs, list) and len(qs) >= 4:
                 return qs[:4]
     except Exception:
         pass
-    return ["What is the main topic?", "What are the key findings?",
-            "What data is presented?", "What are the recommendations?"]
+
+    return [
+        "What is the main topic of this document?",
+        "What are the key findings or conclusions?",
+        "What data or evidence is presented?",
+        "What are the recommendations or next steps?",
+    ]
 
 
 def build_export(history, doc_names):
-    lines = ["NEXUS // CHAT EXPORT", "="*50,
-             f"TIMESTAMP: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
-             f"SOURCES:   {', '.join(doc_names)}", "="*50, ""]
-    for i, t in enumerate(history, 1):
-        lines += [f"[Q{i}] {t['q']}", f"[A{i}] {t['a']}"]
-        if t.get("citations"):
-            lines.append("[REF] " + " | ".join(
-                f"p.{c['page']} '{c['doc']}' {int(c['score']*100)}%"
-                for c in t["citations"]))
+    lines = [
+        "NEXUS AI — CHAT EXPORT",
+        "=" * 60,
+        f"Date: {datetime.now().strftime('%Y-%m-%d %H:%M')}",
+        f"Documents: {', '.join(doc_names) if doc_names else 'None'}",
+        "=" * 60,
+        "",
+    ]
+
+    for i, turn in enumerate(history, 1):
+        lines.append(f"Q{i}: {turn['q']}")
+        lines.append(f"A{i}: {turn['a']}")
+        if turn.get("citations"):
+            cites = ", ".join(
+                f"p.{c['page']} in '{c['doc']}' ({int(c['score']*100)}%)"
+                for c in turn["citations"]
+            )
+            lines.append(f"Sources: {cites}")
         lines.append("")
     return "\n".join(lines)
 
 
-# ── State ─────────────────────────────────────────────────────────────────────
-for k, v in {"history":[],"all_chunks":[],"all_embeddings":None,
-             "docs":{},"summaries":{},"suggestions":[],"prefill":"","provider":"Groq"}.items():
-    if k not in st.session_state:
-        st.session_state[k] = v
+# =============================================================================
+# Session state
+# =============================================================================
+defaults = {
+    "history": [],
+    "all_chunks": [],
+    "all_embeddings": None,
+    "docs": {},           # doc_name -> meta
+    "summaries": {},      # doc_name -> summary
+    "suggestions": [],
+    "prefill": "",
+    "doc_filter": None,   # None or [doc_name, ...]
+    "groq_key": os.environ.get("GROQ_API_KEY", ""),
+}
+for key, value in defaults.items():
+    if key not in st.session_state:
+        st.session_state[key] = value
 
-for k, env in [("groq_key","GROQ_API_KEY"),("gemini_key","GEMINI_API_KEY")]:
-    if k not in st.session_state:
-        st.session_state[k] = os.environ.get(env, "")
 
-def get_keys():
-    return {"groq": st.session_state.groq_key, "gemini": st.session_state.gemini_key}
-
-def key_ok():
-    k = get_keys()
-    return bool(k["groq"] if st.session_state.provider == "Groq" else k["gemini"])
+def active_key_ok():
+    return bool(st.session_state.groq_key)
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-#  SIDEBAR
-# ═══════════════════════════════════════════════════════════════════════════════
+def reset_app():
+    st.session_state.history = []
+    st.session_state.all_chunks = []
+    st.session_state.all_embeddings = None
+    st.session_state.docs = {}
+    st.session_state.summaries = {}
+    st.session_state.suggestions = []
+    st.session_state.prefill = ""
+    st.session_state.doc_filter = None
+    st.rerun()
+
+
+# =============================================================================
+# Sidebar
+# =============================================================================
 with st.sidebar:
-
-    st.markdown("""
-    <div style="padding:16px 14px 12px;border-bottom:1px solid var(--border);">
-      <pre style="color:var(--green);font-size:8.5px;line-height:1.25;
-                  text-shadow:var(--glow);margin:0;overflow:hidden;">
- _  _ _____  ____  _  _  ___
-( \\( | ___ \\( _  )( \\/ )/ __)
- )  ( | ____/  )(   )  ( \\__ \\
-(_)\\_)|_____)__)(  (_/\\_)(___/</pre>
-      <div style="font-size:9px;color:var(--muted);letter-spacing:2px;margin-top:6px;">
-        DOC-ANALYSIS-SYSTEM v2.0
-      </div>
-    </div>""", unsafe_allow_html=True)
-
-    # provider
-    st.markdown('<div style="padding:12px 14px 0;"><div style="font-size:9px;'
-                'color:var(--muted);letter-spacing:2px;margin-bottom:8px;">'
-                '// SELECT_PROVIDER</div></div>', unsafe_allow_html=True)
-    provider = st.radio("prov", ["Groq","Gemini"], horizontal=True,
-                        index=0 if st.session_state.provider=="Groq" else 1,
-                        label_visibility="collapsed")
-    st.session_state.provider = provider
-
-    # api key
-    st.markdown(f'<div style="padding:10px 14px 0;"><div style="font-size:9px;'
-                f'color:var(--muted);letter-spacing:2px;margin-bottom:6px;">'
-                f'// API_KEY [{provider.upper()}]</div>'
-                f'<div style="font-size:10px;color:var(--muted);">'
-                f'{"$ export GROQ=" if provider=="Groq" else "$ export GEMINI="}'
-                f'</div></div>', unsafe_allow_html=True)
-    if provider == "Groq":
-        k = st.text_input("gk", value=st.session_state.groq_key,
-                          placeholder="gsk_...", type="password",
-                          label_visibility="collapsed")
-        st.session_state.groq_key = k
-    else:
-        k = st.text_input("mk", value=st.session_state.gemini_key,
-                          placeholder="AIza...", type="password",
-                          label_visibility="collapsed")
-        st.session_state.gemini_key = k
-
-    # upload
-    st.markdown('<div style="height:1px;background:var(--border);margin:12px 0;"></div>'
-                '<div style="padding:0 14px;"><div style="font-size:9px;color:var(--muted);'
-                'letter-spacing:2px;margin-bottom:8px;">// LOAD_DOCUMENT --type=pdf'
-                '</div></div>', unsafe_allow_html=True)
-
-    uploaded = st.file_uploader("pdf", type="pdf", label_visibility="collapsed")
-
-    if uploaded:
-        if not key_ok():
-            st.error("[ERR] API_KEY_MISSING")
-        elif uploaded.name not in st.session_state.docs:
-            with st.spinner("INDEXING DOCUMENT..."):
-                new_chunks, meta = extract_pdf(uploaded, uploaded.name)
-                new_embs = embed_chunks(new_chunks)
-                st.session_state.all_chunks.extend(new_chunks)
-                st.session_state.all_embeddings = (
-                    new_embs if st.session_state.all_embeddings is None
-                    else np.vstack([st.session_state.all_embeddings, new_embs]))
-                st.session_state.docs[uploaded.name] = meta
-                st.session_state.summaries[uploaded.name] = get_summary(
-                    provider, get_keys(), meta["full_text"])
-                st.session_state.suggestions = get_suggestions(
-                    provider, get_keys(), meta["full_text"])
-                st.session_state.history = []
-            st.success(f"[OK] {meta['pages']}pp / {meta['chunks']} chunks indexed")
-
-    # loaded docs
-    if st.session_state.docs:
-        st.markdown('<div style="height:1px;background:var(--border);margin:12px 0;"></div>'
-                    '<div style="padding:0 14px;"><div style="font-size:9px;color:var(--muted);'
-                    'letter-spacing:2px;margin-bottom:8px;">// LOADED_FILES</div></div>',
-                    unsafe_allow_html=True)
-        for doc_name, meta in st.session_state.docs.items():
-            short = doc_name[:22]+".." if len(doc_name)>24 else doc_name
-            w = f"{round(meta['words']/1000,1)}k" if meta['words']>=1000 else str(meta['words'])
-            bf = min(int(meta['chunks']/8), 18)
-            bar = "█"*bf + "░"*(18-bf)
-            st.markdown(f"""
-            <div style="margin:0 14px 7px;padding:8px 10px;
-                        border:1px solid var(--border);background:var(--surface2);">
-              <div style="font-size:10px;color:var(--green);text-shadow:var(--glow-sm);
-                          overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
-                &gt; {short}
-              </div>
-              <div style="font-size:9px;color:var(--muted);margin-top:3px;">
-                {meta['pages']}pp · {w}w · {meta['chunks']}c
-              </div>
-              <div style="font-size:8px;color:var(--muted);margin-top:3px;letter-spacing:-1px;">
-                [{bar}]
-              </div>
-            </div>""", unsafe_allow_html=True)
-
-        tp = sum(m["pages"] for m in st.session_state.docs.values())
-        tw = sum(m["words"] for m in st.session_state.docs.values())
-        tc = sum(m["chunks"] for m in st.session_state.docs.values())
-        st.markdown(f"""
-        <div style="margin:0 14px 10px;padding:7px 10px;
-                    border:1px solid var(--green-dim);background:rgba(51,255,0,0.02);">
-          <div style="font-size:9px;color:var(--muted);">
-            TOTAL :: {len(st.session_state.docs)} docs · {tp}pp · {round(tw/1000,1)}k words
+    st.markdown(
+        """
+        <div style="padding: 1rem 0.9rem 0.8rem; border-bottom: 1px solid var(--border); margin-bottom: 0.9rem;">
+          <div style="color: var(--fg); font-weight: 800; font-size: 16px; letter-spacing: 0.08em;">
+            NEXUS AI
           </div>
-        </div>""", unsafe_allow_html=True)
+          <div style="color: var(--amber); font-size: 10px; letter-spacing: 0.18em; margin-top: 0.35rem;">
+            TERMINAL PDF RAG / GROQ ONLY
+          </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
-        st.markdown('<div style="padding:0 14px 14px;">', unsafe_allow_html=True)
-        if st.button("[ PURGE ALL DOCUMENTS ]", use_container_width=True):
-            for ks in ["history","all_chunks","suggestions"]:
-                st.session_state[ks] = []
-            st.session_state.all_embeddings = None
-            st.session_state.docs = {}
-            st.session_state.summaries = {}
-            st.rerun()
-        st.markdown('</div>', unsafe_allow_html=True)
+    st.markdown("### > API KEY")
+    groq_value = st.text_input(
+        "groq_key",
+        value=st.session_state.groq_key,
+        placeholder="gsk_...",
+        type="password",
+        label_visibility="collapsed",
+    )
+    st.session_state.groq_key = groq_value
 
-    st.markdown("""
-    <div style="padding:10px 14px;border-top:1px solid var(--border);margin-top:8px;">
-      <div style="font-size:8px;color:var(--muted);line-height:1.9;letter-spacing:0.3px;">
-        GROQ   :: llama-3.1-8b-instant<br>
-        GEMINI :: gemini-2.0-flash [FIXED]<br>
-        EMBED  :: all-MiniLM-L6-v2<br>
-        SEARCH :: cosine-similarity top-5
-      </div>
-    </div>""", unsafe_allow_html=True)
+    st.markdown("### > LOAD DOCUMENTS")
+    uploaded_files = st.file_uploader(
+        "pdf",
+        type="pdf",
+        accept_multiple_files=True,
+        label_visibility="collapsed",
+    )
+
+    if uploaded_files:
+        if not active_key_ok():
+            st.error("Add your Groq API key first.")
+        else:
+            new_docs_loaded = False
+            for uploaded in uploaded_files:
+                if uploaded.name in st.session_state.docs:
+                    continue
+
+                with st.spinner(f"Indexing {uploaded.name}..."):
+                    new_chunks, meta = extract_pdf(uploaded, uploaded.name)
+                    new_embs = embed_chunks(new_chunks)
+
+                    st.session_state.all_chunks.extend(new_chunks)
+                    if st.session_state.all_embeddings is None:
+                        st.session_state.all_embeddings = new_embs
+                    else:
+                        st.session_state.all_embeddings = np.vstack(
+                            [st.session_state.all_embeddings, new_embs]
+                        )
+
+                    st.session_state.docs[uploaded.name] = meta
+                    st.session_state.summaries[uploaded.name] = get_summary(meta["full_text"])
+                    st.session_state.suggestions = get_suggestions(meta["full_text"])
+                    new_docs_loaded = True
+
+            if new_docs_loaded:
+                st.session_state.history = []
+                st.session_state.prefill = ""
+                st.success("Documents indexed.")
+
+    if st.session_state.docs:
+        st.markdown("### > DOCUMENTS")
+        doc_names = list(st.session_state.docs.keys())
+        focus_options = ["All documents"] + doc_names
+        current_focus = "All documents"
+        if st.session_state.doc_filter:
+            current_focus = st.session_state.doc_filter[0] if st.session_state.doc_filter[0] in doc_names else "All documents"
+
+        chosen_focus = st.selectbox(
+            "focus",
+            focus_options,
+            index=focus_options.index(current_focus),
+            label_visibility="collapsed",
+        )
+        st.session_state.doc_filter = None if chosen_focus == "All documents" else [chosen_focus]
+
+        for doc_name, meta in st.session_state.docs.items():
+            short_name = doc_name if len(doc_name) <= 24 else doc_name[:21] + "..."
+            words_display = f"{meta['words']:,}" if meta["words"] < 10000 else f"{round(meta['words']/1000, 1)}k"
+
+            st.markdown(
+                f"""
+                <div class="doc-card">
+                  <div class="doc-icon">PDF</div>
+                  <div class="doc-info">
+                    <div class="doc-name">{safe(short_name)}</div>
+                    <div class="doc-meta">{meta['pages']} pages · {words_display} words · {meta['chunks']} chunks</div>
+                  </div>
+                  <div class="badge">{meta['pages']}p</div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+        total_pages = sum(m["pages"] for m in st.session_state.docs.values())
+        total_words = sum(m["words"] for m in st.session_state.docs.values())
+        total_chunks = sum(m["chunks"] for m in st.session_state.docs.values())
+
+        st.markdown(
+            f"""
+            <div class="stats">
+              <div class="stat"><div class="stat-val">{len(st.session_state.docs)}</div><div class="stat-key">docs</div></div>
+              <div class="stat"><div class="stat-val">{total_pages}</div><div class="stat-key">pages</div></div>
+              <div class="stat"><div class="stat-val">{round(total_words/1000,1) if total_words >= 1000 else total_words}</div><div class="stat-key">words</div></div>
+            </div>
+            <div style="margin-top:0.45rem; color:#7ea57e; font-size:10px;">{total_chunks} total chunks indexed</div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+        st.markdown("---")
+        if st.button("[ CLEAR ALL DOCUMENTS ]", use_container_width=True):
+            reset_app()
+
+    st.markdown("---")
+    st.markdown(
+        """
+        <div style="font-size:10px; color:#8db08d; line-height:1.7;">
+          <div>&gt; model: llama-3.1-8b-instant</div>
+          <div>&gt; embeddings: all-MiniLM-L6-v2</div>
+          <div>&gt; ui: terminal cli</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-#  MAIN
-# ═══════════════════════════════════════════════════════════════════════════════
-st.markdown('<div style="max-width:800px;margin:0 auto;padding:36px 24px 140px;">',
-            unsafe_allow_html=True)
+# =============================================================================
+# Main area
+# =============================================================================
+st.markdown('<div class="main-wrap">', unsafe_allow_html=True)
 
 if not st.session_state.docs:
-    st.markdown("""
-    <div style="padding:20px 0 48px;">
-      <div style="font-size:9px;color:var(--muted);letter-spacing:3px;margin-bottom:24px;">
-        user@nexus:~$ ./nexus --init --mode=rag --version=2.0
-      </div>
-      <pre style="color:var(--green);font-size:clamp(14px,3.5vw,34px);
-                  line-height:1.1;text-shadow:var(--glow);margin-bottom:8px;
-                  font-family:'JetBrains Mono',monospace;overflow:hidden;">
-███╗   ██╗███████╗██╗  ██╗██╗   ██╗███████╗
-████╗  ██║██╔════╝╚██╗██╔╝██║   ██║██╔════╝
-██╔██╗ ██║█████╗   ╚███╔╝ ██║   ██║███████╗
-██║╚██╗██║██╔══╝   ██╔██╗ ██║   ██║╚════██║
-██║ ╚████║███████╗██╔╝ ██╗╚██████╔╝███████║
-╚═╝  ╚═══╝╚══════╝╚═╝  ╚═╝ ╚═════╝ ╚══════╝</pre>
-      <div style="font-size:11px;color:var(--amber);letter-spacing:2px;margin-bottom:28px;">
-        // DOCUMENT INTELLIGENCE SYSTEM // SEMANTIC RAG // v2.0
-      </div>
-      <div style="font-size:12px;color:var(--muted);line-height:2.2;max-width:460px;margin-bottom:36px;">
-        <span style="color:var(--green);text-shadow:var(--glow-sm);">[OK]</span> semantic vector search — not keyword matching<br>
-        <span style="color:var(--green);text-shadow:var(--glow-sm);">[OK]</span> page-level citations + relevance scores<br>
-        <span style="color:var(--green);text-shadow:var(--glow-sm);">[OK]</span> multi-PDF cross-document queries<br>
-        <span style="color:var(--green);text-shadow:var(--glow-sm);">[OK]</span> dual LLM :: groq [llama] + gemini [2.0-flash]<br>
-        <span style="color:var(--green);text-shadow:var(--glow-sm);">[OK]</span> auto-summary on document load
-      </div>
-      <div style="color:var(--border);font-size:11px;margin-bottom:24px;letter-spacing:1px;">
-        ================================================
-      </div>
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1px;
-                  border:1px solid var(--border);max-width:480px;">
-        <div style="padding:14px 12px;border-right:1px solid var(--border);">
-          <div style="font-size:9px;color:var(--muted);letter-spacing:1px;">// STEP_01</div>
-          <div style="font-size:11px;color:var(--green);margin-top:6px;text-shadow:var(--glow-sm);">
-            UPLOAD.PDF
-          </div>
-          <div style="font-size:9px;color:var(--muted);margin-top:4px;">sidebar &gt; load_doc</div>
+    st.markdown(
+        """
+        <div class="boot-box">
+          <div class="ascii">NEXUS AI :: BOOT SEQUENCE
+[ READY ]
+[ WAITING FOR INPUT ]</div>
         </div>
-        <div style="padding:14px 12px;border-right:1px solid var(--border);">
-          <div style="font-size:9px;color:var(--muted);letter-spacing:1px;">// STEP_02</div>
-          <div style="font-size:11px;color:var(--green);margin-top:6px;text-shadow:var(--glow-sm);">
-            INDEX.VEC
+        <div class="hero">
+          <div class="hero-eyebrow">Semantic PDF Intelligence</div>
+          <div class="hero-title">Talk to any PDF.<br>Instantly.</div>
+          <div class="hero-sub">
+            Upload one or more PDFs and query them with semantic search and Groq-powered answers.
+            Open the sidebar from the top-left control to load files or update the API key.
           </div>
-          <div style="font-size:9px;color:var(--muted);margin-top:4px;">embeddings built</div>
-        </div>
-        <div style="padding:14px 12px;">
-          <div style="font-size:9px;color:var(--muted);letter-spacing:1px;">// STEP_03</div>
-          <div style="font-size:11px;color:var(--green);margin-top:6px;text-shadow:var(--glow-sm);">
-            QUERY.ASK
+          <div class="grid-3">
+            <div class="card step-card">
+              <div class="step-top">01 // LOAD</div>
+              <div class="step-title">Upload PDFs</div>
+              <div class="step-desc">Drop documents in the sidebar and index them automatically.</div>
+            </div>
+            <div class="card step-card">
+              <div class="step-top">02 // INDEX</div>
+              <div class="step-title">Build vectors</div>
+              <div class="step-desc">Chunks are embedded with all-MiniLM-L6-v2 for retrieval.</div>
+            </div>
+            <div class="card step-card">
+              <div class="step-top">03 // QUERY</div>
+              <div class="step-title">Ask questions</div>
+              <div class="step-desc">Answers are grounded in retrieved pages and citations.</div>
+            </div>
           </div>
-          <div style="font-size:9px;color:var(--muted);margin-top:4px;">cited answers</div>
         </div>
-      </div>
-      <div style="margin-top:28px;font-size:12px;color:var(--muted);">
-        user@nexus:~$ <span class="cursor-block"></span>
-      </div>
-    </div>""", unsafe_allow_html=True)
-
+        """,
+        unsafe_allow_html=True,
+    )
 else:
-    # summaries
     for doc_name, summary in st.session_state.summaries.items():
-        short = doc_name[:34]+".." if len(doc_name)>36 else doc_name
-        with st.expander(f"// AUTO_SUMMARY :: {short}", expanded=False):
-            st.markdown(f"""
-            <div style="padding:14px 16px;border:1px solid var(--border);
-                        border-left:3px solid var(--green);background:var(--surface2);">
-              <div style="font-size:9px;color:var(--muted);letter-spacing:2px;margin-bottom:10px;">
-                [PROC] SUMMARY :: {doc_name}
-              </div>
-              <div style="font-size:12px;color:var(--green);line-height:1.9;
-                          text-shadow:var(--glow-sm);">{summary}</div>
-            </div>""", unsafe_allow_html=True)
+        short = doc_name if len(doc_name) <= 36 else doc_name[:33] + "..."
+        with st.expander(f"> AUTO SUMMARY :: {short}", expanded=False):
+            st.markdown(
+                f"""
+                <div class="summary-box">
+                  <div class="summary-title">DOCUMENT SUMMARY</div>
+                  <div class="summary-content">{render_answer(summary)}</div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
 
-    # suggestions
     if not st.session_state.history and st.session_state.suggestions:
-        st.markdown("""
-        <div style="font-size:9px;color:var(--muted);letter-spacing:2px;
-                    margin-bottom:12px;display:flex;align-items:center;gap:10px;">
-          // SUGGESTED_QUERIES
-          <span style="flex:1;height:1px;background:var(--border);display:inline-block;"></span>
-        </div>""", unsafe_allow_html=True)
+        st.markdown('<div class="section-label">> SUGGESTED QUERIES</div>', unsafe_allow_html=True)
         cols = st.columns(2)
         for i, q in enumerate(st.session_state.suggestions):
             with cols[i % 2]:
-                if st.button(f"> {q}", key=f"sq_{i}"):
+                if st.button(q, key=f"suggest_{i}", use_container_width=True):
                     st.session_state.prefill = q
                     st.rerun()
-        st.markdown("<br>", unsafe_allow_html=True)
 
-    # chat
     if st.session_state.history:
+        st.markdown('<div class="section-label">> CONVERSATION LOG</div>', unsafe_allow_html=True)
+        st.markdown('<div class="chat-wrap">', unsafe_allow_html=True)
+
         for turn in st.session_state.history:
-            # user
-            st.markdown(f"""
-            <div style="display:flex;justify-content:flex-end;margin-bottom:8px;
-                        animation:rise 0.2s ease;">
-              <div style="max-width:74%;padding:12px 16px;
-                          background:rgba(51,255,0,0.05);
-                          border:1px solid var(--green);
-                          font-size:13px;color:var(--green);
-                          line-height:1.65;text-shadow:var(--glow-sm);">
-                <div style="font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:5px;">
-                  user@nexus:~$
+            st.markdown(
+                f"""
+                <div class="msg-user">
+                  <div class="bubble-user">{safe(turn['q'])}</div>
+                  <div class="user-tag">YOU</div>
                 </div>
-                {turn['q']}
-              </div>
-            </div>""", unsafe_allow_html=True)
+                """,
+                unsafe_allow_html=True,
+            )
 
-            # ai
-            st.markdown(f"""
-            <div style="display:flex;justify-content:flex-start;margin-bottom:6px;
-                        animation:rise 0.2s ease;">
-              <div style="max-width:86%;padding:14px 18px;
-                          background:var(--surface);
-                          border:1px solid var(--border);
-                          border-left:2px solid var(--green);
-                          font-size:13px;color:var(--green);
-                          line-height:1.85;text-shadow:var(--glow-sm);">
-                <div style="font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:6px;">
-                  nexus@system [OK] ::
+            st.markdown(
+                f"""
+                <div class="msg-ai">
+                  <div class="ai-tag">NEXUS</div>
+                  <div class="bubble-ai">{render_answer(turn['a'])}</div>
                 </div>
-                {turn['a']}
-              </div>
-            </div>""", unsafe_allow_html=True)
+                """,
+                unsafe_allow_html=True,
+            )
 
-            # citations
             if turn.get("citations"):
                 cite_html = ""
                 for c in turn["citations"]:
-                    bf = int(c["score"] * 10)
-                    bar = "█"*bf + "░"*(10-bf)
-                    ds = c["doc"][:16]+".." if len(c["doc"])>18 else c["doc"]
+                    score_pct = int(c["score"] * 100)
+                    short_doc = c["doc"] if len(c["doc"]) <= 18 else c["doc"][:15] + "..."
                     cite_html += f"""
-                    <div style="padding:4px 10px;border:1px solid var(--border);
-                                font-size:9px;color:var(--muted);
-                                font-family:'JetBrains Mono',monospace;
-                                display:flex;align-items:center;gap:8px;
-                                background:var(--surface2);">
-                      <span style="color:var(--amber);">REF</span>
-                      <span style="color:var(--green);text-shadow:var(--glow-sm);">
-                        p.{c['page']}
-                      </span>
-                      <span>{ds}</span>
-                      <span style="color:var(--muted);">[{bar}]{int(c['score']*100)}%</span>
-                    </div>"""
-                st.markdown(f'<div style="display:flex;flex-wrap:wrap;gap:4px;'
-                            f'margin-bottom:24px;">{cite_html}</div>',
-                            unsafe_allow_html=True)
+                    <div class="cite-card">
+                      <span>FILE:{safe(short_doc)}</span>
+                      <span class="cite-page">P.{c['page']}</span>
+                      <span class="cite-score">{score_pct}%</span>
+                    </div>
+                    """
+                st.markdown(f'<div class="citations-row">{cite_html}</div>', unsafe_allow_html=True)
 
-        exp = build_export(st.session_state.history,
-                           list(st.session_state.docs.keys()))
-        st.download_button(
-            "[ EXPORT_CHAT --format=txt ]", data=exp,
-            file_name=f"nexus_{datetime.now().strftime('%Y%m%d_%H%M')}.txt",
-            mime="text/plain")
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    export_text = build_export(st.session_state.history, list(st.session_state.docs.keys()))
+    st.download_button(
+        "[ EXPORT CHAT ]",
+        data=export_text,
+        file_name=f"nexus_chat_{datetime.now().strftime('%Y%m%d_%H%M')}.txt",
+        mime="text/plain",
+        use_container_width=False,
+    )
+
+    st.markdown("### > QUERY")
+    with st.form("query_form", clear_on_submit=False):
+        prompt = st.text_input(
+            "cmd",
+            value=st.session_state.prefill,
+            placeholder="type a question about the loaded PDFs",
+            label_visibility="collapsed",
+        )
+        submitted = st.form_submit_button("[ EXECUTE ]", use_container_width=True)
+
+    if st.session_state.prefill and prompt == st.session_state.prefill:
+        st.session_state.prefill = ""
+
+    if submitted:
+        question = prompt.strip()
+        if not question:
+            st.warning("Type a question first.")
+        elif not active_key_ok():
+            st.error("Add your Groq API key in the sidebar.")
+        else:
+            with st.spinner("Searching documents and generating answer..."):
+                results = semantic_search(
+                    question,
+                    st.session_state.all_chunks,
+                    st.session_state.all_embeddings,
+                    k=5,
+                    doc_filter=st.session_state.doc_filter,
+                )
+                answer = get_answer(results, question, st.session_state.history)
+
+            st.session_state.history.append(
+                {
+                    "q": question,
+                    "a": answer,
+                    "citations": results,
+                }
+            )
+            st.session_state.prefill = ""
+            st.rerun()
 
 st.markdown('</div>', unsafe_allow_html=True)
-
-# input
-if st.session_state.docs:
-    n = len(st.session_state.docs)
-    ph = (f"query across {n} docs // press Enter..."
-          if n > 1 else "user@nexus:~$ query document...")
-    question = st.chat_input(ph)
-    if st.session_state.prefill and not question:
-        question = st.session_state.prefill
-        st.session_state.prefill = ""
-    if question:
-        if not key_ok():
-            st.error("[ERR] API_KEY_MISSING — add key in sidebar")
-        else:
-            with st.spinner("RETRIEVING... REASONING..."):
-                results = semantic_search(question, st.session_state.all_chunks,
-                                          st.session_state.all_embeddings, k=5)
-                answer = get_answer(st.session_state.provider, get_keys(),
-                                    results, question, st.session_state.history)
-            st.session_state.history.append(
-                {"q": question, "a": answer, "citations": results})
-            st.rerun()
-else:
-    st.chat_input("// upload PDF to initialize...", disabled=True)

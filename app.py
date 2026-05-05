@@ -109,39 +109,46 @@ button, input, textarea, select {
   padding-top: 0.25rem;
 }
 
-/* Hide Streamlit's default title */
 [data-testid="stSidebar"] .stFileUploader label {
   display: none !important;
 }
 
-/* Hide extra helper/instruction text */
-[data-testid="stSidebar"] [data-testid="stFileUploaderDropzone"] div[data-testid="stFileUploaderDropzoneInstructions"] {
+/* Remove big upload container styling */
+[data-testid="stSidebar"] [data-testid="stFileUploaderDropzone"] {
+  border: none !important;
+  background: transparent !important;
+  padding: 0 !important;
+  min-height: auto !important;
+  display: block !important;
+}
+
+/* Remove helper text */
+[data-testid="stSidebar"] [data-testid="stFileUploaderDropzoneInstructions"] {
   display: none !important;
 }
 
-/* Clean dropzone */
-[data-testid="stSidebar"] [data-testid="stFileUploaderDropzone"] {
-  background: var(--panel) !important;
-  border: 1px dashed var(--border-2) !important;
-  min-height: 90px !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-}
-
-/* Hide internal paragraphs */
 [data-testid="stSidebar"] [data-testid="stFileUploaderDropzone"] p {
   display: none !important;
 }
 
-/* Style only the button */
+/* Clean actual button */
 [data-testid="stSidebar"] [data-testid="stFileUploaderDropzone"] button {
-  background: transparent !important;
+  width: 100% !important;
+  background: #050505 !important;
   color: var(--fg) !important;
   border: 1px solid var(--border) !important;
-  padding: 0.7rem 1rem !important;
-  text-transform: uppercase;
-  font-size: 14px !important;
+  padding: 0.9rem 1rem !important;
+  font-size: 13px !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.08em !important;
+  cursor: pointer !important;
+}
+
+/* Hover */
+[data-testid="stSidebar"] [data-testid="stFileUploaderDropzone"] button:hover {
+  background: var(--fg) !important;
+  color: black !important;
 }
 
 [data-testid="stSidebar"] [data-testid="stFileUploaderDropzone"] {

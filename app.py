@@ -1099,7 +1099,7 @@ else:
     )
 
     st.markdown("### > QUERY")
-    with st.form("query_form", clear_on_submit=False):
+    with st.form("query_form", clear_on_submit=True):
         prompt = st.text_input(
             "cmd",
             value=st.session_state.prefill,
@@ -1107,9 +1107,6 @@ else:
             label_visibility="collapsed",
         )
         submitted = st.form_submit_button("[ EXECUTE ]", use_container_width=True)
-
-    if st.session_state.prefill and prompt == st.session_state.prefill:
-        st.session_state.prefill = ""
 
     if submitted:
         question = prompt.strip()

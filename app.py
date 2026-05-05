@@ -56,10 +56,6 @@ html, body, [class*="css"] {
 
 #MainMenu, footer { visibility: hidden; }
 header { visibility: visible; }
-header [data-testid="collapsedControl"], header [data-testid="collapsedControl"] * { font-family: "Material Symbols Rounded" !important; color: var(--fg) !important; font-size: 24px !important; line-height: 1 !important; }
-header [data-testid="collapsedControl"] button { background: transparent !important; border: 1px solid var(--border) !important; width: 2.2rem !important; height: 2.2rem !important; padding: 0 !important; }
-header [data-testid="collapsedControl"] svg { display: none !important; }
-header { visibility: visible; }
 
 .stApp {
   background: var(--bg) !important;
@@ -168,6 +164,20 @@ section[data-testid="stSidebar"] > div:first-child {
   padding-top: 0.25rem;
 }
 
+/* Keep the sidebar toggle visible but don't replace the icon glyph.
+   This avoids the keyboard_double_arrow_* text artifact. */
+header [data-testid="collapsedControl"] button {
+  background: transparent !important;
+  border: 1px solid var(--border) !important;
+  width: 2.2rem !important;
+  height: 2.2rem !important;
+  padding: 0 !important;
+  color: var(--fg) !important;
+}
+header [data-testid="collapsedControl"] svg {
+  display: block !important;
+}
+
 .main-wrap {
   max-width: 1040px;
   margin: 0 auto;
@@ -178,8 +188,7 @@ section[data-testid="stSidebar"] > div:first-child {
 .panel,
 .card,
 .summary-box,
-.chat-box,
-.suggestion-btn {
+.chat-box {
   background: var(--panel);
   border: 1px solid var(--border);
 }
@@ -226,10 +235,6 @@ section[data-testid="stSidebar"] > div:first-child {
   font-size: 14px;
 }
 
-.kbd {
-  color: var(--amber);
-}
-
 .grid-3 {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -271,12 +276,6 @@ section[data-testid="stSidebar"] > div:first-child {
   letter-spacing: 0.18em;
   text-transform: uppercase;
   margin: 1.1rem 0 0.55rem;
-}
-
-.hr {
-  height: 1px;
-  background: var(--border);
-  margin: 0.8rem 0 1rem;
 }
 
 .summary-box {
@@ -484,19 +483,6 @@ section[data-testid="stSidebar"] > div:first-child {
   color: var(--amber);
 }
 
-.command-line {
-  display: flex;
-  gap: 0.75rem;
-  align-items: center;
-  margin: 1rem 0 0.5rem;
-  color: var(--fg);
-}
-
-.prompt {
-  color: var(--amber);
-  white-space: nowrap;
-}
-
 [data-testid="stTextInput"] input,
 [data-testid="stTextArea"] textarea {
   background: #050505 !important;
@@ -589,14 +575,9 @@ def sanitize_llm_text(text: str) -> str:
 
 def render_answer(text: str) -> str:
     """
-    Minimal markdown-ish renderer for the terminal UI.
-    Supports **bold** and line breaks, while preventing HTML/code leakage.
+    Render as markdown, not HTML, so model output cannot inject raw tags.
     """
-    cleaned = sanitize_llm_text(text)
-    escaped = html.escape(cleaned)
-    escaped = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", escaped)
-    escaped = escaped.replace("\n", "<br>")
-    return escaped
+    return sanitize_llm_text(text)
 
 
 def extract_pdf(file_obj, doc_name: str):
@@ -681,8 +662,8 @@ def semantic_search(query: str, all_chunks, all_embeddings, k=5, doc_filter=None
 def _build_messages(system, user_msg, history):
     messages = [{"role": "system", "content": system}]
     for turn in history[-4:]:
-        messages.append({"role": "user", "content": turn["q"]})
-        messages.append({"role": "assistant", "content": turn["a"]})
+        messages.append({"role": "user", "content": sanitize_llm_text(turn["q"])})
+        messages.append({"role": "assistant", "content": sanitize_llm_text(turn["a"])})
     messages.append({"role": "user", "content": user_msg})
     return messages
 
@@ -728,9 +709,9 @@ def get_answer(results, question, history):
         "- Answer ONLY from the provided context.\n"
         "- Do not fabricate information.\n"
         "- If the answer is not in the context, say: 'This information is not available in the uploaded documents.'\n"
-        "- When you reference a fact, mention the page number.\n"
-        "- Be concise but complete.\n"
-        "- Use simple markdown when helpful."
+        "- Mention page numbers when relevant.\n"
+        "- Do not output HTML, tags, or code blocks.\n"
+        "- Be concise but complete."
     )
 
     user_msg = f"RETRIEVED CONTEXT:\n{context}\n\nQUESTION:\n{question}"
@@ -1046,29 +1027,19 @@ else:
                 unsafe_allow_html=True,
             )
 
+            # Use markdown rendering only — no HTML injection path.
             st.markdown(
-                f"""
-                <div class="msg-ai">
-                  <div class="ai-tag">NEXUS</div>
-                  <div class="bubble-ai">{render_answer(turn['a'])}</div>
-                </div>
-                """,
-                unsafe_allow_html=True,
+                f"**NEXUS:**\n\n{render_answer(turn['a'])}",
             )
 
             if turn.get("citations"):
-                cite_html = ""
+                st.markdown("**SOURCES**")
                 for c in turn["citations"]:
                     score_pct = int(c["score"] * 100)
                     short_doc = c["doc"] if len(c["doc"]) <= 18 else c["doc"][:15] + "..."
-                    cite_html += f"""
-                    <div class="cite-card">
-                      <span>FILE:{safe(short_doc)}</span>
-                      <span class="cite-page">P.{c['page']}</span>
-                      <span class="cite-score">{score_pct}%</span>
-                    </div>
-                    """
-                st.markdown(f'<div class="citations-row">{cite_html}</div>', unsafe_allow_html=True)
+                    st.markdown(
+                        f"- `FILE:{short_doc}`  ·  `P.{c['page']}`  ·  `{score_pct}%`"
+                    )
 
         st.markdown('</div>', unsafe_allow_html=True)
 

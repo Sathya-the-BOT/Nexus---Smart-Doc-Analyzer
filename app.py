@@ -233,8 +233,11 @@ header [data-testid="collapsedControl"] span {
   font-size: 18px !important;
   line-height: 18px !important;
   speak: none !important;
+  font-feature-settings: 'liga' !important;
   -webkit-font-feature-settings: 'liga' !important;
   -webkit-font-smoothing: antialiased !important;
+  -moz-osx-font-smoothing: grayscale !important;
+  text-rendering: optimizeLegibility !important;
 }
 
 .main-wrap {

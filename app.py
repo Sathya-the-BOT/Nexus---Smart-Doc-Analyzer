@@ -986,16 +986,7 @@ with st.sidebar:
             reset_app()
 
     st.markdown("---")
-    st.markdown(
-        """
-        <div style="font-size:10px; color:#8db08d; line-height:1.7;">
-          <div>&gt; model: llama-3.1-8b-instant</div>
-          <div>&gt; embeddings: all-MiniLM-L6-v2</div>
-          <div>&gt; ui: terminal cli</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
+    
 
 
 # =============================================================================
@@ -1011,7 +1002,7 @@ if not st.session_state.docs:
         </div>
         <div class="hero">
           <div class="hero-eyebrow">Semantic PDF Intelligence</div>
-          <div class="hero-title">Talk to any PDF.<br>Instantly.</div>
+          <div class="hero-title">Talk to any PDF Instantly.</div>
           <div class="hero-sub">
             Upload documents and explore them with semantic search and AI-powered answers.
             Open the sidebar from the top-left control to load files or update the API key.
